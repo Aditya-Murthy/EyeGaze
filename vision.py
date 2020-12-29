@@ -2,9 +2,9 @@ import cv2 as cv
 
 cap = cv.VideoCapture(0)
 eye_cascade = cv.CascadeClassifier(
-    "venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")
+    "venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")   #replace with relevant path
 
-loadSuccess = eye_cascade.load("venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")
+loadSuccess = eye_cascade.load("venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")  #replace with relevant path
 print(loadSuccess)
 if not cap.isOpened():
     print("Cannot access camera")
