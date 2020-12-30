@@ -1,10 +1,10 @@
 import cv2 as cv
 
-cap = cv.VideoCapture(0)
-eye_cascade = cv.CascadeClassifier("venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")   #replace with relevant path
+cap = cv.VideoCapture(0, cv.CAP_DSHOW)
+eye_cascade = cv.CascadeClassifier(
+    "venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")
 
-loadSuccess = eye_cascade.load("venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")  #replace with relevant path
-
+loadSuccess = eye_cascade.load("venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")
 print(loadSuccess)
 if not cap.isOpened():
     print("Cannot access camera")
@@ -23,7 +23,7 @@ while True:
         cv.circle(blurredEye, minLoc, radius=3, color=(255, 0, 0))
         cv.imshow("Stream", frame)
         cv.imshow("Eye", blurredEye)
-    if cv.waitKey(30) > -1:
+    if cv.waitKey(30) == ord("q"):
         break
 
 cap.release()
