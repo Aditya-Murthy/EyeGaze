@@ -7,8 +7,8 @@ The eye gaze is intended to be used as an augmented input method for scentence f
 Done:
 - Robust pupil tracking algorithm using haaar cascade classifiers
 
-To do-
-- Implement gaze-direction calibrtaion before every run
+To do:
+- Implement gaze-direction calibrtaion
 - Inteface to convert gaze-direction to words/commands
 
 
