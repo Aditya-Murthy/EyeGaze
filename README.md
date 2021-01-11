@@ -5,7 +5,7 @@ This eyegaze application aims at tracking the eye movements using an integrated 
 The eye gaze is intended to be used as an augmented input method for scentence formation and other speech processing applications.
 
 Done:
-- Robust pupil tracking algorithm using haaar cascade classifiers
+- Robust pupil tracking algorithm using haar cascade classifiers
 - Implement user-defined gaze-direction calibrtaion
 
 To do:
