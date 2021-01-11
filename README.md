@@ -1,6 +1,6 @@
 # EyeGaze
 
-The ultimate aim here is to develop programs that can convert eye-movements to speech.
+The ultimate aim here is to develop an image-processing toolbox that can convert eye-movements to speech.
 This eyegaze application aims at tracking the eye movements using an integrated computer/laptop camera in native resolution.
 The eye gaze is intended to be used as an augmented input method for scentence formation and other speech processing applications.
 
