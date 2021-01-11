@@ -99,20 +99,54 @@ def draw_eye(eye_loc, eye_frame):
         cv.circle(eye_frame, eye_loc, 3, (255, 0, 0), 2)
 
 
-def display_gaze_direction(center, ext_counter, frame):
-    if ext_counter == 0:
-        init_center = center[0]
-    if init_center - center[0] > 2:
-        cv.putText(frame, "Right", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
-    elif init_center - center[0] < -3:
-        cv.putText(frame, "Left", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2)
+def get_right_calib_key():
+    r_calib_key = False
+    parent = tkinter.Tk()
+    parent.overrideredirect(1)
+    parent.attributes("-topmost", True)
+    parent.withdraw()
+
+    response = messagebox.showinfo("Right gaze calibration", "Shift your gaze to the desired right boundary and hold constant gaze for 3 seconds. Click OK when ready")
+    if response == 'ok':
+        r_calib_key = True
+    return r_calib_key
+
+def get_left_calib_key():
+    l_calib_key = False
+    parent = tkinter.Tk()
+    parent.overrideredirect(1)
+    parent.attributes("-topmost", True)
+    parent.withdraw()
+
+    response = messagebox.showinfo("Left gaze calibration", "Shift your gaze to the desired left boundary and hold constant gaze for 3 seconds. Click OK when ready")
+    if response == 'ok':
+        l_calib_key = True
+    return l_calib_key
+
+
+def display_gaze_direction(eye_loc, x_right, x_left, frame):
+
+    if eye_loc[0] > x_left:
+        cv.putText(frame, "Left", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
+    elif eye_loc[0] < x_right:
+        cv.putText(frame, "Right", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2)
     else:
-        cv.putText(frame, "Center", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2)
+        cv.putText(frame, "Center", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
 
 #global vars
 eye_cascade, load_status = load_cascade_classifier_from("venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")
 cap = cv.VideoCapture(0, cv.CAP_DSHOW)
 init_windows()
+l_calib_array=[]
+l_calib_counter= 0
+l_key = False
+l_calib_flag = True
+l_command_counter = 0
+r_calib_array=[]
+r_calib_counter= 0
+r_key = False
+r_calib_flag = True
+r_command_counter = 0
 
 if cap.isOpened() and load_status:
     while True:
@@ -126,9 +160,40 @@ if cap.isOpened() and load_status:
         eye_loc = get_eye_location(final_contour)
         draw_eye(eye_loc, eye_snip)
 
-        cv.imshow("Main_frame", full_frame)
+        # -- start of calibration--
+
         if eye_snip is not None:
             cv.imshow("Eye", eye_snip)
+            if l_command_counter == 0:
+                l_key = get_left_calib_key()
+                l_command_counter += 1
+            if l_calib_flag:
+                if eye_loc is not None and l_key:
+                    if l_calib_counter < 20:
+                        l_calib_array.append(eye_loc[0])
+                        l_calib_counter += 1
+                    else:
+                        x_left = np.average(l_calib_array)
+                        print("x_left=  ", x_left)
+                        l_calib_flag = False
+
+            if r_command_counter == 0 and l_calib_flag is False:
+                r_key = get_right_calib_key()
+                r_command_counter += 1
+            if r_calib_flag:
+                if eye_loc is not None and r_key:
+                    if r_calib_counter < 20:
+                        r_calib_array.append(eye_loc[0])
+                        r_calib_counter += 1
+                    else:
+                        x_right = np.average(r_calib_array)
+                        print("x_right=  ", x_right)
+                        r_calib_flag = False
+            # -- end of calibration --
+
+            if r_calib_flag is False and eye_loc is not None:   # do the gaze classification only when calibration is complete
+                display_gaze_direction(eye_loc, x_right, x_left, full_frame)
+        cv.imshow("Main_frame", full_frame)
         if cv.waitKey(30) == ord("q"):
             break
     cap.release()
