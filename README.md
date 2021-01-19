@@ -6,12 +6,13 @@ The eye gaze is intended to be used as an augmented input method for scentence f
 
 Done:
 - Robust pupil tracking algorithm using haaar cascade classifiers
+- User-friendly tuning of image thresholding for detection in varied lighting conditions
 
 To do:
-- Implement gaze-direction calibrtaion
 - Inteface to convert gaze-direction to words/commands
 
 
 Current dependencies:
 
 1. OpenCV
+2. tkinter

@@ -1,12 +1,13 @@
 import cv2 as cv
 import numpy as np
-import math
+import tkinter
+from tkinter import messagebox
 
 
 def init_windows():
     cv.namedWindow("Main_frame", 1)
     cv.namedWindow("Eye", 2)
-
+    cv.namedWindow("Dialogue", 1)
 
 
 def load_cascade_classifier_from(filepath, status=1):
@@ -53,7 +54,7 @@ def get_eye_centroid(eyes_vec, target_frame, process_thresh=127):
         return centroid
 
 
-def get_eye_contour(eyes_vec, frame):
+def get_eye_contour(eyes_vec, frame, thresh_ip):
     for (x, y, w, h) in eyes_vec:
         eye = frame[y:y + h, x:x + w]
         dst = cv.fastNlMeansDenoisingColored(eye, None, 10, 10, 7, 21)
@@ -62,12 +63,25 @@ def get_eye_contour(eyes_vec, frame):
         thresh = cv.cvtColor(inv, cv.COLOR_BGR2GRAY)
         kernel = np.ones((2, 2), np.uint8)
         erosion = cv.erode(thresh, kernel, iterations=1)
-        ret, thresh1 = cv.threshold(erosion, 210, 255, cv.THRESH_BINARY)
+        ret, thresh1 = cv.threshold(erosion, thresh_ip, 255, cv.THRESH_BINARY)
         cnts, hierarchy = cv.findContours(thresh1, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         return cnts
 
 
-def get_final_contour(cnts, centroid, flag=10000):
+def get_thresh_img(eyes_vec, frame, thresh_ip):
+    for (x, y, w, h) in eyes_vec:
+        eye = frame[y:y + h, x:x + w]
+        dst = cv.fastNlMeansDenoisingColored(eye, None, 10, 10, 7, 21)
+        blur = cv.GaussianBlur(dst, (3, 3), 0)
+        inv = cv.bitwise_not(blur)
+        thresh = cv.cvtColor(inv, cv.COLOR_BGR2GRAY)
+        kernel = np.ones((2, 2), np.uint8)
+        erosion = cv.erode(thresh, kernel, iterations=1)
+        ret, thresh1 = cv.threshold(erosion, thresh_ip, 255, cv.THRESH_BINARY)
+        return thresh1
+
+
+def get_final_contour(cnts, centroid, flag=15000):
     if cnts is None:
         return None
     else:
@@ -106,10 +120,12 @@ def get_right_calib_key():
     parent.attributes("-topmost", True)
     parent.withdraw()
 
-    response = messagebox.showinfo("Right gaze calibration", "Shift your gaze to the desired right boundary and hold constant gaze for 3 seconds. Click OK when ready")
+    response = messagebox.showinfo("Right gaze calibration",
+                                   "Shift your gaze to the desired right boundary and hold constant gaze for 3 seconds. Click OK when ready")
     if response == 'ok':
         r_calib_key = True
     return r_calib_key
+
 
 def get_left_calib_key():
     l_calib_key = False
@@ -118,14 +134,14 @@ def get_left_calib_key():
     parent.attributes("-topmost", True)
     parent.withdraw()
 
-    response = messagebox.showinfo("Left gaze calibration", "Shift your gaze to the desired left boundary and hold constant gaze for 3 seconds. Click OK when ready")
+    response = messagebox.showinfo("Left gaze calibration",
+                                   "Shift your gaze to the desired left boundary and hold constant gaze for 3 seconds. Click OK when ready")
     if response == 'ok':
         l_calib_key = True
     return l_calib_key
 
 
 def display_gaze_direction(eye_loc, x_right, x_left, frame):
-
     if eye_loc[0] > x_left:
         cv.putText(frame, "Left", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
     elif eye_loc[0] < x_right:
@@ -133,21 +149,81 @@ def display_gaze_direction(eye_loc, x_right, x_left, frame):
     else:
         cv.putText(frame, "Center", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
 
-#global vars
-eye_cascade, load_status = load_cascade_classifier_from("venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")
+
+def run_threshold_calib(cap, load_status, eye_cascade, threshold_ip):
+    parent = tkinter.Tk()
+    parent.overrideredirect(1)
+    parent.attributes("-topmost", True)
+    parent.withdraw()
+    messagebox.showinfo("Threshold calibration",
+                        "Repeatedly click '+' and '-' to adjust image thresholding until only pupil is visible in the Binary image")
+    cv.namedWindow("Stream", 1)
+    cv.namedWindow("Eye", 2)
+    cv.namedWindow("Binary Image", 2)
+    while cap.isOpened() and load_status:
+        ret, frame = cap.read()
+        eye_vec = detect_eyes(frame, eye_cascade)
+        if len(eye_vec) == 0 or eye_vec is None:
+            pass
+        else:
+            mark_eye(eye_vec, frame)
+            eye = get_eye_frame(eye_vec, frame)
+            centroid = get_eye_centroid(eye_vec, frame)
+            cnts = get_eye_contour(eye_vec, frame, threshold_ip)
+            thresh = get_thresh_img(eye_vec, frame, threshold_ip)
+            fnlcntr = get_final_contour(cnts, centroid)
+            center = get_eye_location(fnlcntr)
+            if center is not None:
+                diffx = eye_vec[0][0] + center[0]
+                diffy = eye_vec[0][1] + center[1]
+                centerf = (diffx, diffy)
+                cv.circle(frame, centerf, 3, (0, 255, 0), 1)
+                draw_eye(center, eye)
+
+            cv.imshow("Eye", eye)
+            cv.imshow("Binary Image", thresh)
+        cv.imshow("Stream", frame)
+
+        if cv.waitKey(10) == ord("q"):
+            break
+        elif cv.waitKey(10) == ord("+") and threshold_ip < 255:
+            threshold_ip += 2
+        elif cv.waitKey(10) == ord("-") and threshold_ip > 0:
+            threshold_ip -= 2
+        else:
+            pass
+        # print(thres_ip)
+    cv.destroyAllWindows()
+    return threshold_ip
+
+
+# Main code
+
+# Open video stream and cascade classifier
+eye_cascade, load_status = load_cascade_classifier_from(
+    "venv\Lib\site-packages\cv2\data\haarcascade_righteye_2splits.xml")
 cap = cv.VideoCapture(0, cv.CAP_DSHOW)
-init_windows()
-l_calib_array=[]
-l_calib_counter= 0
+
+#global vars
+l_calib_array = []
+l_calib_counter = 0
 l_key = False
 l_calib_flag = True
 l_command_counter = 0
-r_calib_array=[]
-r_calib_counter= 0
+r_calib_array = []
+r_calib_counter = 0
 r_key = False
 r_calib_flag = True
 r_command_counter = 0
+default_threshold = 210
+x_right = []
+x_left = []
 
+# run threshold calibration
+calib_threshold = run_threshold_calib(cap, load_status, eye_cascade, default_threshold)
+
+# run gaze detection algorithm
+init_windows()
 if cap.isOpened() and load_status:
     while True:
         ret, full_frame = cap.read()
@@ -155,7 +231,7 @@ if cap.isOpened() and load_status:
         mark_eye(eye_vec, full_frame)
         eye_snip = get_eye_frame(eye_vec, full_frame)
         centroid = get_eye_centroid(eye_vec, full_frame)
-        contours = get_eye_contour(eye_vec, full_frame)
+        contours = get_eye_contour(eye_vec, full_frame, calib_threshold)
         final_contour = get_final_contour(contours, centroid)
         eye_loc = get_eye_location(final_contour)
         draw_eye(eye_loc, eye_snip)
@@ -177,7 +253,7 @@ if cap.isOpened() and load_status:
                         print("x_left=  ", x_left)
                         l_calib_flag = False
 
-            if r_command_counter == 0 and l_calib_flag is False:
+            if r_command_counter == 0 and l_calib_flag == False:
                 r_key = get_right_calib_key()
                 r_command_counter += 1
             if r_calib_flag:
@@ -190,14 +266,10 @@ if cap.isOpened() and load_status:
                         print("x_right=  ", x_right)
                         r_calib_flag = False
             # -- end of calibration --
-
-            if r_calib_flag is False and eye_loc is not None:   # do the gaze classification only when calibration is complete
+            if r_calib_flag is False and eye_loc is not None:
                 display_gaze_direction(eye_loc, x_right, x_left, full_frame)
         cv.imshow("Main_frame", full_frame)
         if cv.waitKey(30) == ord("q"):
             break
     cap.release()
     cv.destroyAllWindows()
-
-
-
